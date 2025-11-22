@@ -30,7 +30,7 @@ services:
   auth-service:
     build: ../auth-service
     container_name: auth-service
-    env_file: ./auth-service/.env
+    env_file: ../auth-service/.env
     networks:
       - elearning-net
 
