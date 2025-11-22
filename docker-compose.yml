@@ -1,0 +1,131 @@
+name: elearning-stack
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-nextlevel_admin_2025}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-changeme123!}
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "5672:5672" # AMQP
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - elearning-net
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    env_file: ./api-gateway/.env
+    environment:
+      ALLOW_ALL_ORIGINS: "true"
+      AUTH_SERVICE_BASE_URL: http://auth-service:3333
+      USER_SERVICE_BASE_URL: http://user-service:3333
+      NOTIFICATION_SERVICE_BASE_URL: http://notification-service:3333
+      COURSE_SERVICE_BASE_URL: http://course-service:3333
+      ASSESSMENT_SERVICE_BASE_URL: http://assessment-service:3333
+      PROGRESS_SERVICE_BASE_URL: http://progress-service:3333
+      GAMIFICATION_SERVICE_BASE_URL: http://gamification-service:3333
+    ports:
+      - "8080:3333"
+    depends_on:
+      - auth-service
+      - user-service
+      - notification-service
+      - course-service
+      - assessment-service
+      - progress-service
+      - gamification-service
+    networks:
+      - elearning-net
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    env_file: ./auth-service/.env
+    depends_on:
+      - rabbitmq
+    networks:
+      - elearning-net
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    env_file: ./user-service/.env
+    depends_on:
+      - rabbitmq
+    networks:
+      - elearning-net
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    env_file: ./notification-service/.env
+    depends_on:
+      - rabbitmq
+    networks:
+      - elearning-net
+
+  course-service:
+    build: ./course-service
+    container_name: course-service
+    env_file: ./course-service/.env
+    networks:
+      - elearning-net
+
+  assessment-service:
+    build: ./assessment-service
+    container_name: assessment-service
+    env_file: ./assessment-service/.env
+    networks:
+      - elearning-net
+
+  progress-service:
+    build: ./progress-service
+    container_name: progress-service
+    env_file: ./progress-service/.env
+    networks:
+      - elearning-net
+
+  gamification-service:
+    build: ./gamification-service
+    container_name: gamification-service
+    env_file: ./gamification-service/.env
+    depends_on:
+      - redis
+    networks:
+      - elearning-net
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - elearning-net
+
+  web-frontend:
+    build:
+      context: ./web-frontend
+      dockerfile: .devcontainer/Dockerfile
+    container_name: web-frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web-frontend:/app
+      - /app/node_modules
+    networks:
+      - elearning-net
+
+networks:
+  elearning-net:
+    driver: bridge
